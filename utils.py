@@ -120,6 +120,43 @@ def make_multi_image_batch(filenames, coder):
     return image_batch
 
 
+def cv_read(image):
+    h = image.shape[0]
+    w = image.shape[1]
+    percent = 1.0 * w / h
+    if percent >= 1:
+        if h < RESIZE_FINAL:
+            image = cv2.resize(image, (int(RESIZE_FINAL * percent), RESIZE_FINAL))
+    else:
+        if w < RESIZE_FINAL:
+            image = cv2.resize(image, (RESIZE_FINAL, int(RESIZE_FINAL/percent)))
+    h = image.shape[0]
+    w = image.shape[1]
+    hl = h - RESIZE_FINAL
+    wl = w - RESIZE_FINAL
+
+    crop = cv2.resize(image, (RESIZE_FINAL, RESIZE_FINAL))
+    adjusted_std = max(np.std(crop), 1.0/np.sqrt(crop.size))
+    crop_1 = (crop - np.mean(crop)) / adjusted_std
+    crop_2 = cv2.flip(crop_1, 1)
+    crops = []
+    crops.append(crop_1)
+    crops.append(crop_2)
+
+    corners = [(0, 0), (0, wl), (hl, 0), (hl, wl), (int(hl/2), int(wl/2))]
+    for corner in corners:
+        ch, cw = corner
+        cropped = image[ch:RESIZE_FINAL+ch, cw:RESIZE_FINAL+cw]
+        adjusted_std = max(np.std(cropped), 1.0/np.sqrt(cropped.size))
+        crop_3 = (cropped - np.mean(cropped)) / adjusted_std
+        crop_4 = cv2.flip(crop_3, 1)
+        crops.append(crop_3)
+        crops.append(crop_4)
+
+    image_batch = np.stack(crops, axis=0)
+    return image_batch
+
+
 def make_multi_crop_batch(filename, coder):
     """Process a single image file.
     Args:
